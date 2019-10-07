@@ -1,0 +1,65 @@
+
+###Jenkins の実行ユーザを変更する、実行ユーザは１個だけ？、グループ可能？
+
+```
+#実行ユーザ変更 USER01を設定
+vi /etc/sysconfig/jenkins 
+JENKINS_USER="USER01"
+
+#各ディレクトリ、ファイルの権限変更
+chown -R USER01: /var/lib/jenkins /var/log/jenkins /var/cache/jenkins
+#最後に再起動
+
+```
+
+###jenkisn shellエラー判定
+ジョブでshell呼び出し　エラーの場合は、shellのエラーが返ってくるので、それ判定、ジョブがエラーになる
+
+####例１　ジョブ try 〜catch無し
+```groovy:pipeline
+node('s5658') {
+    stage 'test robot exec'
+    sh "cd /home/jenkins/workspace/test-pop/poptest/ && sudo make robot_framework_jenkins_test_12"
+}
+```
+robotフレームワークがエラー時
+
+```shell:
+make: *** [robot_framework_test] エラー 1
+[Pipeline] }
+[Pipeline] // node
+[Pipeline] End of Pipeline
+ERROR: script returned exit code 2
+Finished: FAILURE　　　＜＝　ジョブ自体が失敗、赤ランプ　シェル戻り値そのままで判定
+
+```
+
+####例２　ジョブ try 〜catch有り
+
+try 〜catchでくくるとジョブ自体は成功、エラーはシェル戻り値で判定する
+
+```groovy:pipeline
+node('s5658') {
+     try {
+        stage 'test robot exec'
+        sh "cd /home/jenkins/workspace/test-pop/poptest/ && sudo make robot_framework_jenkins_test_12_err"
+     } catch(error) {
+        echo "Caught ${error}"  
+     }    
+    
+}
+```
+
+robotフレームワークがエラー時
+
+```shell:
+make: *** [robot_framework_jenkins_test_12_err] エラー 1
+[Pipeline] echo
+Caught hudson.AbortException: script returned exit code 2　　＜＝エラーキャッチされている、シェル戻り値で判定
+[Pipeline] }
+[Pipeline] // node
+[Pipeline] End of Pipeline
+Finished: SUCCESS　＜＝　ジョブ自体は成功、青ランプ　
+
+```
+
